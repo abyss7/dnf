@@ -35,7 +35,7 @@ class MarkCommand(commands.Command):
     activate_sack = True
     aliases = ('mark',)
     summary = _("Mark or unmark installed packages as installed by user.")
-    usage = "[install|remove [%s]]" % _('PACKAGE')
+    usage = "[install|remove|list [%s]]" % _('PACKAGE')
 
     @staticmethod
     def _split_cmd(extcmds):
@@ -54,6 +54,15 @@ class MarkCommand(commands.Command):
         yumdb.get_package(pkg).reason = 'dep'
         logger.info(_('%s unmarked as user installed.'), str(pkg))
 
+    def _mark_list(self):
+        yumdb = self.base.yumdb
+        query = self.base.sack.query()
+        for pkg in query.installed():
+            yumdb_info = yumdb.get_package(pkg)
+            reason = getattr(yumdb_info, 'reason', 'user')
+            if reason == 'user':
+                logger.info(_('%s'), str(pkg))
+
     def configure(self, extcmds):
         demands = self.cli.demands
         demands.sack_activation = True
@@ -62,14 +71,14 @@ class MarkCommand(commands.Command):
         demands.resolving = False
 
     def doCheck(self, basecmd, extcmds):
-        if len(extcmds) < 2:
+        cmd, pkgs = self._split_cmd(extcmds)
+
+        if len(extcmds) < 2 and cmd != 'list':
             logger.critical(_('Error: Need a package or list of packages'))
             commands.err_mini_usage(self.cli, basecmd)
             raise dnf.cli.CliError
 
-        cmd, pkgs = self._split_cmd(extcmds)
-
-        if cmd not in ('install', 'remove'):
+        if cmd not in ('install', 'remove', 'list'):
             commands.err_mini_usage(self.cli, basecmd)
             raise dnf.cli.CliError
 
@@ -77,6 +86,10 @@ class MarkCommand(commands.Command):
         cmd, pkgs = self._split_cmd(extcmds)
 
         mark_func = functools.partial(getattr(self, '_mark_' + cmd))
+
+        if cmd == 'list':
+            mark_func()
+            return
 
         notfound = []
         for pkg in pkgs:
