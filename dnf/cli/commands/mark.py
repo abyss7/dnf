@@ -71,6 +71,11 @@ class MarkCommand(commands.Command):
         demands.resolving = False
 
     def doCheck(self, basecmd, extcmds):
+        if len(extcmds) < 1:
+            logger.critical(_('Error: Need to specify a command'))
+            commands.err_mini_usage(self.cli, basecmd)
+            raise dnf.cli.CliError
+
         cmd, pkgs = self._split_cmd(extcmds)
 
         if len(extcmds) < 2 and cmd != 'list':
